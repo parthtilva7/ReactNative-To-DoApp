@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,31 +8,50 @@ import {
 } from "react-native";
 import { Button, Card } from "react-native-paper";
 import Task from "./components/Task";
+import { db } from "./firebase";
+import {
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  updateDoc,
+} from "firebase/firestore";
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [taskTitle, setTaskTitle] = useState("");
 
-  const addTask = () => {
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "tasks"), (snapshot) => {
+      const tasksList = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setTasks(tasksList);
+    });
+    return unsubscribe;
+  }, []);
+
+  const addTask = async () => {
     if (taskTitle.trim()) {
-      setTasks([
-        ...tasks,
-        { id: Date.now().toString(), title: taskTitle, status: false },
-      ]);
+      await addDoc(collection(db, "tasks"), {
+        title: taskTitle,
+        status: false,
+      });
       setTaskTitle("");
     }
   };
 
-  const deleteTask = (id) => {
-    setTasks(tasks.filter((task) => task.id !== id));
+  const deleteTask = async (id) => {
+    await deleteDoc(doc(db, "tasks", id));
   };
 
-  const toggleTaskStatus = (id) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === id ? { ...task, status: !task.status } : task
-      )
-    );
+  const toggleTaskStatus = async (id) => {
+    const task = tasks.find((task) => task.id === id);
+    await updateDoc(doc(db, "tasks", id), {
+      status: !task.status,
+    });
   };
 
   return (
